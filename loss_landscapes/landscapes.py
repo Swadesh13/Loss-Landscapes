@@ -133,11 +133,6 @@ def create_3D_losscape(
         loss = compute_loss(model, device, train_loader_unshuffled, criterion, num_batches)
         losses[i, j] = loss
         count += 1
-        print(
-            "LOSS FOR x={} AND y={} IS : {}. Done : {}/{} ({}%)".format(
-                X[i, j], Y[i, j], loss, count, total, count / total * 100.0
-            )
-        )
 
     _reset_weights(model, init_weights)
 
