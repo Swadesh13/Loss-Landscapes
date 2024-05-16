@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 import torch
 import h5py
-from utils import compute_loss
-from utils import create_random_direction, create_random_directions
+from .utils import compute_loss
+from .utils import create_random_direction, create_random_directions
 
 
 def create_2D_losscape(
@@ -20,10 +20,10 @@ def create_2D_losscape(
     num_batches: int = 8,
     x_min: float = -1.0,
     x_max: float = 1.0,
-    output_path: str = "",
     num_points: int = 50,
-    save: bool = True,
     show: bool = True,
+    save: bool = True,
+    output_path: str = "./results",
 ):
     """
     Create a 2D losscape of the given model.
@@ -49,7 +49,7 @@ def create_2D_losscape(
     model.to(device)
 
     if direction is None:
-        direction = [create_random_direction(model)]
+        direction = [create_random_direction(model, device)]
 
     init_weights = [p.data for p in model.parameters()]
 
@@ -64,6 +64,7 @@ def create_2D_losscape(
 
     plt.plot(coords, losses)
     if save:
+        os.makedirs(output_path, exist_ok=True)
         plt.savefig(os.path.join(output_path, "2d_losscape.png"), dpi=300)
     if show:
         plt.show()
@@ -83,9 +84,9 @@ def create_3D_losscape(
     y_min: float = -1.0,
     y_max: float = 1.0,
     num_points: int = 50,
-    save: bool = True,
     show: bool = True,
-    output_path: str = "",
+    save: bool = True,
+    output_path: str = "./results",
     output_vtp: bool = True,
     output_h5: bool = True,
 ):
@@ -118,7 +119,7 @@ def create_3D_losscape(
     model = model.eval().to(device)
 
     if directions is None:
-        directions = create_random_directions(model)
+        directions = create_random_directions(model, device)
 
     init_weights = [p.data for p in model.parameters()]
 
@@ -139,16 +140,19 @@ def create_3D_losscape(
     cp = plt.contour(X, Y, losses, cmap="summer")
     plt.clabel(cp, inline=1, fontsize=8)
     if save:
+        os.makedirs(output_path, exist_ok=True)
         plt.savefig(os.path.join(output_path, "3d_losscape.png"), dpi=300)
     if show:
         plt.show()
     plt.clf()
 
     if output_vtp:
-        _create_vtp(X, Y, losses, log=True, output_path=output_path)
+        os.makedirs(output_path, exist_ok=True)
         _create_vtp(X, Y, losses, log=False, output_path=output_path)
+        _create_vtp(X, Y, losses, log=True, output_path=output_path)
 
     if output_h5:
+        os.makedirs(output_path, exist_ok=True)
         with h5py.File(os.path.join(output_path, "data.h5"), "w") as hf:
             hf.create_dataset("X", data=X)
             hf.create_dataset("Y", data=Y)

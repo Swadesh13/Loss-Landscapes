@@ -30,7 +30,7 @@ def compute_loss(model, device, train_loader_unshuffled, criterion=None, num_bat
             if batch_idx + 1 >= num_batches:
                 break
 
-    loss = loss / (batch_idx + 1)
+    loss /= len(train_loader_unshuffled)
     return loss
 
 
@@ -50,7 +50,7 @@ def filter_normalization_weights(direction, weights):
         d.mul_(w.norm() / (d.norm() + 1e-10))
 
 
-def create_random_direction(model):
+def create_random_direction(model, device):
     """
     Return a random direction in the model's weights space.
     This vector is normalized according to https://arxiv.org/abs/1712.09913.
@@ -65,12 +65,12 @@ def create_random_direction(model):
     """
 
     weights = _get_weights(model)
-    direction = _get_random_weights(weights)
+    direction = _get_random_weights(weights, device)
     filter_normalization_weights(direction, weights)
     return direction
 
 
-def create_random_directions(model):
+def create_random_directions(model, device):
     """
     Return two random directions in the model's weights space.
     These vectors are normalized according to https://arxiv.org/abs/1712.09913.
@@ -84,6 +84,6 @@ def create_random_directions(model):
     directions : list of two tensors, which correspond to the two sampled directions.
     """
 
-    x_direction = create_random_direction(model)
-    y_direction = create_random_direction(model)
+    x_direction = create_random_direction(model, device)
+    y_direction = create_random_direction(model, device)
     return [x_direction, y_direction]
