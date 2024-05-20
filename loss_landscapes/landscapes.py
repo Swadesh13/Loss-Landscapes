@@ -2,13 +2,14 @@ import os
 import math
 import numpy as np
 import itertools
+import torch.utils
+import torch.utils.data
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from scipy import interpolate
 import torch
 import h5py
-from .utils import compute_loss
-from .utils import create_random_direction, create_random_directions
+from .utils import compute_loss, create_random_direction, create_random_directions, load_data_once
 
 
 def create_2D_losscape(
@@ -18,6 +19,7 @@ def create_2D_losscape(
     direction=None,
     criterion=None,
     num_batches: int = 8,
+    load_once: bool = True,
     x_min: float = -1.0,
     x_max: float = 1.0,
     num_points: int = 50,
@@ -35,6 +37,7 @@ def create_2D_losscape(
     optimizer : the optimizer used for training (should follow the same API as torch optimizers).(default to Adam)
     criterion : the criterion used to compute the loss. (default to F.cross_entropy)
     num_batches : number of batches to evaluate the model with. (default to 8)
+    load_once : Load data only once to reduce file i/o (default: True)
     x_min : min x value (that multiply the sampled direction). (default to -1.)
     x_max : max x value (that multiply the sampled direction). (default to 1.)
     output_path : path where the plot will be saved. (default to '2d_losscape.png')
@@ -55,6 +58,12 @@ def create_2D_losscape(
 
     coords = np.linspace(x_min, x_max, num_points)
     losses = []
+
+    if load_once:
+        data = load_data_once(train_loader_unshuffled, num_batches)
+        if len(data):
+            train_loader_unshuffled = data
+
     for x in tqdm(coords):
         _set_weights(model, init_weights, direction, x)
         loss = compute_loss(model, device, train_loader_unshuffled, criterion, num_batches)
@@ -79,6 +88,7 @@ def create_3D_losscape(
     directions=None,
     criterion=None,
     num_batches: int = 8,
+    load_once: bool = True,
     x_min: float = -1.0,
     x_max: float = 1.0,
     y_min: float = -1.0,
@@ -100,6 +110,7 @@ def create_3D_losscape(
     optimizer : the optimizer used for training (should follow the same API as torch optimizers).(default to Adam)
     criterion : the criterion used to compute the loss. (default to F.cross_entropy)
     num_batches : number of batches to evaluate the model with. (default to 8)
+    load_once : Load data only once to reduce file i/o (default: True)
     x_min : min x value (that multiply the first sampled direction). (default to -1.)
     x_max : max x value (that multiply the first sampled direction). (default to 1.)
     y_min : min x value (that multiply the second sampled direction). (default to -1.)
@@ -128,6 +139,11 @@ def create_3D_losscape(
 
     count = 0
     total = X.shape[0] * X.shape[1]
+
+    if load_once:
+        data = load_data_once(train_loader_unshuffled, num_batches)
+        if len(data):
+            train_loader_unshuffled = data
 
     for i, j in tqdm(itertools.product(range(X.shape[0]), range(X.shape[1])), total=total):
         _set_weights(model, init_weights, directions, np.array([X[i, j], Y[i, j]]))

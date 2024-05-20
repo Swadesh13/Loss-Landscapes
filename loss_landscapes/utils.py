@@ -2,6 +2,15 @@ import torch
 import torch.nn.functional as F
 
 
+def load_data_once(train_loader_unshuffled, num_batches):
+    train_loader = []
+    for i, data in enumerate(train_loader_unshuffled, 1):
+        train_loader.append(data)
+        if i == num_batches:
+            break
+    return train_loader
+
+
 def compute_loss(model, device, train_loader_unshuffled, criterion=None, num_batches: int = 8):
     """
     Compute and return the loss over the first num_batches batches given by the train_loader_unshuffled, using the criterion provided.
