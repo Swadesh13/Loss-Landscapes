@@ -75,9 +75,7 @@ def create_2D_losscape(
 
     for x in tqdm(coords):
         _set_weights(model, init_weights, direction, x)
-        loss = compute_loss(
-            model, device, train_loader_unshuffled, criterion, num_batches
-        )
+        loss = compute_loss(model, device, train_loader_unshuffled, criterion, num_batches)
         losses.append(loss)
 
     _reset_weights(model, init_weights)
@@ -143,41 +141,36 @@ def create_3D_losscape(
     if save:
         os.makedirs(output_path, exist_ok=True)
 
+    if pca:
+        model = model.to(torch.device("cpu"))
+        init_weights = _get_weights(model)
+        res = setup_PCA_directions(model, pca, init_weights, device=torch.device("cpu"))
+        directions = [res["xdirection"], res["ydirection"]]
+        proj_coords = project_trajectory(
+            *directions, model, init_weights, pca, "cos", device=torch.device("cpu")
+        )
+        _max = max(max(proj_coords["proj_xcoord"]), max(proj_coords["proj_ycoord"]))
+        _min = min(min(proj_coords["proj_xcoord"]), min(proj_coords["proj_ycoord"]))
+        x_min = -20  # _min - _max
+        x_max = 20  # _max + _max
+        y_min = -20  # _min - _max
+        y_max = 20  # _max + _max
+
+    model = model.to(device)
+
     if h5:
         with h5py.File(h5, "r") as f:
-            if pca:
-                proj_coords = {
-                    "proj_xcoord": f["proj_xcoord"][:],
-                    "proj_ycoord": f["proj_ycoord"][:],
-                }
-                res = {"explained_variance_ratio_": f["explained_variance_ratio_"][:]}
             X = f["X"][:]
             Y = f["Y"][:]
             losses = f["losses"][:]
     else:
-        if pca:
-            model = model.to(torch.device("cpu"))
-            init_weights = _get_weights(model)
-            res = setup_PCA_directions(pca, init_weights, device=torch.device("cpu"))
-            directions = [res["xdirection"], res["ydirection"]]
-            proj_coords = project_trajectory(
-                *directions, init_weights, pca, device=torch.device("cpu")
-            )
-            x_min = min(proj_coords["proj_xcoord"]) - 1
-            x_max = max(proj_coords["proj_xcoord"]) + 1
-            y_min = min(proj_coords["proj_ycoord"]) - 1
-            y_max = max(proj_coords["proj_ycoord"]) + 1
-            model = model.to(device)
-
         init_weights = _get_weights(model)
-        directions = [[d.to(device) for d in direction] for direction in directions]
-
         if directions is None:
             directions = create_random_directions(model, device)
 
-        X, Y = np.meshgrid(
-            np.linspace(x_min, x_max, num_points), np.linspace(y_min, y_max, num_points)
-        )
+        directions = [[d.to(device) for d in direction] for direction in directions]
+
+        X, Y = np.meshgrid(np.linspace(x_min, x_max, num_points), np.linspace(y_min, y_max, num_points))
         losses = np.empty_like(X)
 
         count = 0
@@ -188,60 +181,52 @@ def create_3D_losscape(
             if len(data):
                 train_loader_unshuffled = data
 
-        for i, j in tqdm(
-            itertools.product(range(X.shape[0]), range(X.shape[1])), total=total
-        ):
+        for i, j in tqdm(itertools.product(range(X.shape[0]), range(X.shape[1])), total=total):
             _set_weights(model, init_weights, directions, np.array([X[i, j], Y[i, j]]))
-            loss = compute_loss(
-                model, device, train_loader_unshuffled, criterion, num_batches
-            )
+            loss = compute_loss(model, device, train_loader_unshuffled, criterion, num_batches)
             losses[i, j] = loss
             count += 1
 
         _reset_weights(model, init_weights)
 
+    fig = plt.figure()
     if pca:
-        plt.plot(proj_coords["proj_xcoord"], proj_coords["proj_ycoord"], marker=".")
+        cp = plt.plot(proj_coords["proj_xcoord"], proj_coords["proj_ycoord"], marker=".", color="red")
     cp = plt.contourf(X, Y, losses, cmap="viridis_r")
     # plt.clabel(cp, colors="black", inline=1, fontsize=8)
-    plt.xticks([])
-    plt.yticks([])
+    # plt.xticks([])
+    # plt.yticks([])
     if pca:
-        plt.xlabel(
-            f"1st PCA component: {(res['explained_variance_ratio_'][0] * 100):.2f}%"
-        )
-        plt.ylabel(
-            f"2nd PCA component: {(res['explained_variance_ratio_'][1] * 100):.2f}"
-        )
+        plt.xlabel(f"1st PCA component: {(res['explained_variance_ratio_'][0] * 100):.2f}%")
+        plt.ylabel(f"2nd PCA component: {(res['explained_variance_ratio_'][1] * 100):.2f}%")
     plt.colorbar(cp)
     if save:
-        plt.savefig(os.path.join(output_path, "3d_losscape.png"), dpi=300)
+        plt.close()
+        fig.savefig(os.path.join(output_path, "3d_losscape.png"), dpi=300)
     if show:
         plt.show()
-    plt.clf()
+    plt.close()
 
+    fig = plt.figure()
     if pca:
-        plt.plot(proj_coords["proj_xcoord"], proj_coords["proj_ycoord"], marker=".")
+        cp = plt.plot(proj_coords["proj_xcoord"], proj_coords["proj_ycoord"], marker=".", color="red")
     cp = plt.contourf(X, Y, np.log(losses), cmap="viridis_r")
     # plt.clabel(cp, colors="black", inline=1, fontsize=8)
-    plt.xticks([])
-    plt.yticks([])
+    # plt.xticks([])
+    # plt.yticks([])
     if pca:
-        plt.xlabel(
-            f"1st PCA component: {(res['explained_variance_ratio_'][0] * 100):.2f}%"
-        )
-        plt.ylabel(
-            f"2nd PCA component: {(res['explained_variance_ratio_'][1] * 100):.2f}"
-        )
+        plt.xlabel(f"1st PCA component: {(res['explained_variance_ratio_'][0] * 100):.2f}%")
+        plt.ylabel(f"2nd PCA component: {(res['explained_variance_ratio_'][1] * 100):.2f}%")
     else:
         plt.xlabel("1st Direction")
         plt.ylabel("2nd Direction")
     plt.colorbar(cp)
     if save:
-        plt.savefig(os.path.join(output_path, "3d_log_losscape.png"), dpi=300)
+        plt.close()
+        fig.savefig(os.path.join(output_path, "3d_log_losscape.png"), dpi=300)
     if show:
         plt.show()
-    plt.clf()
+    plt.close()
 
     if output_vtp:
         os.makedirs(output_path, exist_ok=True)
@@ -299,9 +284,7 @@ def _create_vtp(X, Y, losses, log=False, zmax=-1, interp=-1, output_path=""):
 
     # Interpolate the resolution up to the desired amount
     if interp > 0:
-        m = interpolate.interp2d(
-            xcoordinates[0, :], ycoordinates[:, 0], vals, kind="cubic"
-        )
+        m = interpolate.interp2d(xcoordinates[0, :], ycoordinates[:, 0], vals, kind="cubic")
         x_array = np.linspace(min(x_array), max(x_array), interp)
         y_array = np.linspace(min(y_array), max(y_array), interp)
         z_array = m(x_array, y_array).ravel()
@@ -316,7 +299,7 @@ def _create_vtp(X, Y, losses, log=False, zmax=-1, interp=-1, output_path=""):
         vtp_file += "_zmax=" + str(zmax)
 
     if log:
-        z_array = np.log(z_array + 0.1)
+        z_array = np.log(z_array) * 2
         vtp_file += "_log"
     vtp_file += ".vtp"
     print("Here's your output file:{}".format(vtp_file))
@@ -433,11 +416,7 @@ def _create_vtp(X, Y, losses, log=False, zmax=-1, interp=-1, output_path=""):
     for vertexcount in range(number_points):
         if (vertexcount % 2) == 0:
             output_file.write("          ")
-        output_file.write(
-            "{} {} {}".format(
-                x_array[vertexcount], y_array[vertexcount], z_array[vertexcount]
-            )
-        )
+        output_file.write("{} {} {}".format(x_array[vertexcount], y_array[vertexcount], z_array[vertexcount]))
         if (vertexcount % 2) == 1:
             output_file.write("\n")
         else:

@@ -22,5 +22,5 @@ $ python train.py
 
 ### Generate Loss Landscape
 ```
-$ python generate_landscapes.py <ckpt-path> --load_once --xmin -0.2 --xmax 0.2 --ymin -0.2 --ymax 0.2 --save --output_vtp
+$ python generate_landscapes.py <ckpt-path> --save --output_vtp
 ```

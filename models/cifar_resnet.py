@@ -2,11 +2,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 
-__all__ = ['ResNet', 'cifar_resnet20', 'cifar_resnet32', 'cifar_resnet44', 'cifar_resnet56', 'cifar_resnet110', 'cifar_resnet1202']
+__all__ = [
+    "ResNet",
+    "cifar_resnet20",
+    "cifar_resnet32",
+    "cifar_resnet44",
+    "cifar_resnet56",
+    "cifar_resnet110",
+    "cifar_resnet1202",
+]
+
 
 def _weights_init(m):
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-        init.kaiming_normal_(m.weight)
+        init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+
 
 class LambdaLayer(nn.Module):
     def __init__(self, lambd):
@@ -20,7 +30,7 @@ class LambdaLayer(nn.Module):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1, option='A', add_norm=False, add_skip=False):
+    def __init__(self, in_planes, planes, stride=1, option="A", add_norm=False, add_skip=False):
         super(BasicBlock, self).__init__()
         self.add_norm = add_norm
         self.add_skip = add_skip
@@ -33,16 +43,21 @@ class BasicBlock(nn.Module):
         if self.add_skip:
             self.shortcut = nn.Sequential()
             if stride != 1 or in_planes != planes:
-                if option == 'A':
+                if option == "A":
                     """
                     For CIFAR10 ResNet paper uses option A.
                     """
-                    self.shortcut = LambdaLayer(lambda x:
-                                                F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, planes//4, planes//4), "constant", 0))
-                elif option == 'B':
+                    self.shortcut = LambdaLayer(
+                        lambda x: F.pad(
+                            x[:, :, ::2, ::2], (0, 0, 0, 0, planes // 4, planes // 4), "constant", 0
+                        )
+                    )
+                elif option == "B":
                     self.shortcut = nn.Sequential(
-                        nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                        nn.BatchNorm2d(self.expansion * planes)
+                        nn.Conv2d(
+                            in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False
+                        ),
+                        nn.BatchNorm2d(self.expansion * planes),
                     )
 
     def forward(self, x):
@@ -75,10 +90,12 @@ class ResNet(nn.Module):
         self.apply(_weights_init)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(block(self.in_planes, planes, stride, add_norm=self.add_norm, add_skip=self.add_skip))
+            layers.append(
+                block(self.in_planes, planes, stride, "B", add_norm=self.add_norm, add_skip=self.add_skip)
+            )
             self.in_planes = planes * block.expansion
 
         return nn.Sequential(*layers)
